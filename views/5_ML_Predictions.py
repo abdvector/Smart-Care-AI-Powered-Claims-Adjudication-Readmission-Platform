@@ -265,7 +265,7 @@ with tab_model_metrics:
         st.markdown("#### ROC Discriminative Curve")
         roc_data = benchmarks["roc_curve"]
         fig_roc = go.Figure()
-        fig_roc.add_trace(go.Scatter(x=roc_data["fpr"], y=roc_data["tpr"], mode='lines', name=f'XGBoost Classifier (AUC = {benchmarks["auc_roc"]})', line=dict(color='#2563EB', width=3)))
+        fig_roc.add_trace(go.Scatter(x=roc_data["fpr"], y=roc_data["tpr"], mode='lines', name=f'Calibrated Logistic Classifier (AUC = {benchmarks["auc_roc"]})', line=dict(color='#2563EB', width=3)))
         fig_roc.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode='lines', name='Reference (Random Guess)', line=dict(color='#94A3B8', dash='dash')))
         fig_roc.update_layout(
             xaxis_title="False Positive Rate (1 - Specificity)",

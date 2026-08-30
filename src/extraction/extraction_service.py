@@ -85,13 +85,20 @@ def extract_text(file_input, extension: str = None) -> ExtractionResult:
                 
             prompt = "Extract all text and tabular information from this clinical document accurately and verbatim."
             
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=[
-                    types.Part.from_bytes(data=file_bytes, mime_type=mime_type),
-                    prompt
-                ]
-            )
+            response = None
+            for m_name in ["gemini-3.6-flash", "gemini-3.1-flash-lite"]:
+                try:
+                    response = client.models.generate_content(
+                        model=m_name,
+                        contents=[
+                            types.Part.from_bytes(data=file_bytes, mime_type=mime_type),
+                            prompt
+                        ]
+                    )
+                    if response and response.text:
+                        break
+                except Exception:
+                    continue
             if response and response.text:
                 extracted_text = response.text.strip()
                 print("[EXTRACTION] Gemini Vision successfully extracted scanned document text.")

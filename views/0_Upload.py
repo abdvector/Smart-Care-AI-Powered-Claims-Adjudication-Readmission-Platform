@@ -76,7 +76,7 @@ if uploaded_files:
                 if not metadata or not isinstance(metadata, dict):
                     metadata = {}
 
-                st.write("Computing 30-Day Readmission Probability (XGBoost Engine)...")
+                st.write("Computing 30-Day Readmission Probability (Calibrated Risk Engine)...")
                 risk_score, feature_impacts = predict_readmission_risk(metadata)
                 metadata["readmission_risk"] = risk_score
                 

@@ -107,7 +107,7 @@ The platform executes three primary workflows:
 | **Embedding Model** | Google Gemini `text-embedding-004` (768-dimensional vectors) |
 | **Database & Vector Store** | Supabase PostgreSQL, `pgvector` Extension |
 | **Cloud Object Storage** | Supabase Storage (`clinical-docs` bucket, 1 GB Free Tier) |
-| **Machine Learning & Analytics** | Scikit-Learn, XGBoost, NumPy, Pandas |
+| **Machine Learning & Analytics** | Scikit-Learn, NumPy, Pandas, SciPy |
 | **Document Processing** | PyPDF, Pillow, ImageHash, Python-Dotenv, Tenacity |
 
 ---

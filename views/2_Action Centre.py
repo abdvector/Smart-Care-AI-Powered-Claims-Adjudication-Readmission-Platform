@@ -153,12 +153,85 @@ if st.session_state.review_record_id is not None:
                 st.markdown(f"**Lives Alone (SDoH):** {'Yes (Vulnerable)' if lives_alone else 'No'}")
 
             st.markdown("---")
-            st.markdown("##### Adjudication Decision")
+            st.markdown("##### Multi-Agent Clinical Adjudication Council")
+            st.caption("Convene specialized AI agents (Medical Specialist, Policy Officer, Care Coordinator, Chief Adjudicator) to debate and audit this claim.")
+            
+            from src.agents.clinical_council import run_adjudication_council
+            council_key = f"council_{claim.get('record_id')}"
+            
+            if st.button("Convene Multi-Agent Council", key=f"btn_run_council_{claim.get('record_id')}", use_container_width=True):
+                with st.spinner("Council in session: Specialists analyzing clinical evidence & policy..."):
+                    council_res = run_adjudication_council(claim, claim.get("extracted_text", ""))
+                    st.session_state[council_key] = council_res
+                    st.rerun()
+
+            if council_key in st.session_state:
+                c_res = st.session_state[council_key]
+                med_ag = c_res.get("medical_agent", {})
+                pol_ag = c_res.get("compliance_agent", {})
+                care_ag = c_res.get("care_agent", {})
+                chief_ag = c_res.get("chief_verdict", {})
+
+                final_verdict = chief_ag.get("final_verdict", "Approved")
+                v_color = "#16A34A" if final_verdict == "Approved" else ("#DC2626" if final_verdict == "Denied" else "#D97706")
+
+                st.markdown(f"""
+                <div style="background:#0F172A; color:#F8FAFC; padding:16px; border-radius:8px; margin:12px 0;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:12px; font-weight:700; text-transform:uppercase; color:#94A3B8;">Chief Adjudicator Consensus</span>
+                        <span style="background:{v_color}; color:#ffffff; font-weight:700; padding:3px 10px; border-radius:4px; font-size:13px;">{final_verdict.upper()}</span>
+                    </div>
+                    <div style="font-size:13px; margin:8px 0; color:#E2E8F0; line-height:1.4;">{chief_ag.get('executive_summary', '')}</div>
+                    <div style="font-size:12px; color:#38BDF8;"><b>Directive:</b> {chief_ag.get('directive_for_adjuster', '')}</div>
+                    <div style="font-size:11px; color:#94A3B8; margin-top:6px;">Consensus Confidence: <b>{chief_ag.get('council_consensus_confidence', 90)}%</b> {'(Unanimous)' if chief_ag.get('unanimous') else '(Majority Decision)'}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                with st.expander("Agent 1: Dr. Aris Thorne (Clinical Specialist)", expanded=False):
+                    st.markdown(f"**Medical Necessity:** `{med_ag.get('medical_necessity', 'Justified')}` | **Consistency Score:** {med_ag.get('diagnostic_consistency_score', 85)}/100")
+                    st.markdown(f"**Clinical Rationale:** {med_ag.get('clinical_rationale', '')}")
+                    findings = med_ag.get("clinical_findings", [])
+                    if findings:
+                        st.markdown("**Key Findings:**")
+                        for f in findings:
+                            st.markdown(f"- {f}")
+
+                with st.expander("Agent 2: Elena Vance (Policy Compliance Officer)", expanded=False):
+                    st.markdown(f"**Policy Status:** `{pol_ag.get('policy_compliance_status', 'Compliant')}` | **Integrity Score:** {pol_ag.get('billing_integrity_score', 90)}/100")
+                    st.markdown(f"**Compliance Rationale:** {pol_ag.get('compliance_rationale', '')}")
+                    anomalies = pol_ag.get("detected_anomalies", [])
+                    if anomalies:
+                        st.markdown("**Audited Items:**")
+                        for a in anomalies:
+                            st.markdown(f"- {a}")
+
+                with st.expander("Agent 3: Marcus Sterling (Care Coordinator & Economist)", expanded=False):
+                    st.markdown(f"**Readmission Risk Tier:** `{care_ag.get('readmission_risk_tier', 'Moderate')}` | **Economic Intervention Warranted:** `{'Yes' if care_ag.get('economic_intervention_warranted') else 'No'}`")
+                    st.markdown(f"**Economic Rationale:** {care_ag.get('economic_rationale', '')}")
+                    care_plan = care_ag.get("actionable_care_plan", [])
+                    if care_plan:
+                        st.markdown("**Care Management Action Plan:**")
+                        for cp in care_plan:
+                            st.markdown(f"- {cp}")
+
+                rec_id = claim.get("record_id")
+                if st.button("Apply Council Consensus Verdict to Claim", type="primary", use_container_width=True, key=f"apply_council_{rec_id}"):
+                    update_clinical_record(rec_id, {
+                        "adjudication_status": final_verdict,
+                        "review_reason": f"Council Consensus ({chief_ag.get('council_consensus_confidence', 90)}%): {chief_ag.get('executive_summary', '')[:200]}"
+                    })
+                    st.success(f"Claim adjudication updated to '{final_verdict}' according to Multi-Agent Council consensus.")
+                    del st.session_state[council_key]
+                    st.session_state.review_record_id = None
+                    st.rerun()
+
+            st.markdown("---")
+            st.markdown("##### Manual Adjudication Override")
             
             rec_id = claim.get("record_id")
             b1, b2, b3 = st.columns(3)
             with b1:
-                if st.button("Approve Claim", key=f"side_app_{rec_id}", type="primary", use_container_width=True):
+                if st.button("Approve Claim", key=f"side_app_{rec_id}", type="secondary", use_container_width=True):
                     update_clinical_record(rec_id, {"adjudication_status": "Approved", "review_reason": "Approved in Side-by-Side Review"})
                     st.success("Claim Approved.")
                     st.session_state.review_record_id = None

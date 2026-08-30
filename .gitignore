@@ -5,3 +5,6 @@ __pycache__/
 .vscode/
 .idea/
 *.log
+*.pdf
+*Report*.md
+*Guide*.md

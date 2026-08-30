@@ -161,44 +161,45 @@ with tab_rag_chat:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
+    from src.agents.agentic_rag import run_agentic_rag
+
     if user_prompt := st.chat_input("Ask a clinical or claims question (e.g. 'Which heart failure patients live alone?')"):
         st.session_state.rag_messages.append({"role": "user", "content": user_prompt})
         with st.chat_message("user"):
             st.markdown(user_prompt)
 
         with st.chat_message("assistant"):
-            with st.spinner("Retrieving clinical records and synthesizing answer..."):
-                retrieved_docs = semantic_search_records(user_prompt, match_threshold=0.20, match_count=4)
+            with st.status("Agentic RAG Pipeline Executing...", expanded=True) as agent_status:
+                rag_result = run_agentic_rag(user_prompt)
                 
-                if not retrieved_docs:
-                    retrieved_docs = keyword_search_records(user_prompt, limit=3)
+                for step in rag_result.get("trace_steps", []):
+                    st.write(f"**{step['step']}:** {step['status']}")
 
-                if retrieved_docs:
-                    rag_prompt = get_rag_response_prompt(user_prompt, retrieved_docs)
+                grading = rag_result.get("grading", {})
+                agent_status.update(
+                    label=f"Agentic Retrieval Complete (Evidence Score: {grading.get('quality_score', 85)}/100)",
+                    state="complete",
+                    expanded=False
+                )
 
-                    try:
-                        client = genai.Client(api_key=GEMINI_API_KEY)
-                        response = client.models.generate_content(
-                            model="gemini-2.5-flash",
-                            contents=rag_prompt
-                        )
-                        answer_text = response.text if response and response.text else "Unable to generate answer."
-                    except Exception as e:
-                        answer_text = f"Error communicating with Gemini: {e}"
+            answer_text = rag_result.get("answer", "")
+            citations = rag_result.get("citations", [])
 
-                    st.markdown(answer_text)
+            st.markdown(answer_text)
 
-                    st.markdown("---")
-                    st.markdown("##### Source Citations (Evidence Grounding):")
-                    for i, r in enumerate(retrieved_docs, 1):
-                        p_id = r.get("patient_id", "N/A")
-                        diag = r.get("primary_diagnosis", "N/A")
-                        fname = r.get("file_name", "Document")
-                        risk = float(r.get("readmission_risk", 0.0) or 0.0) * 100
-                        st.markdown(f"- **[{i}] Patient `{p_id}`** ({diag}) | Readmission Risk: **{risk:.1f}%** | `{fname}`")
+            if citations:
+                st.markdown("---")
+                st.markdown("##### Grounded Source Evidence (Supabase pgvector):")
+                for c in citations:
+                    p_id = c.get("patient_id", "N/A")
+                    diag = c.get("primary_diagnosis", "N/A")
+                    fname = c.get("file_name", "Document")
+                    risk = c.get("readmission_risk", 0.0)
+                    status_val = c.get("adjudication_status", "Pending Review")
+                    st.markdown(f"- **[Evidence {c['citation_num']}] Patient `{p_id}`** ({diag}) | Readmission Risk: **{risk:.1f}%** | Status: `{status_val}` | `{fname}`")
 
-                    st.session_state.rag_messages.append({"role": "assistant", "content": answer_text})
-                else:
-                    fallback_msg = "I searched your Supabase clinical records, but could not find relevant documentation to answer your question. Please ensure clinical documents have been uploaded."
-                    st.markdown(fallback_msg)
-                    st.session_state.rag_messages.append({"role": "assistant", "content": fallback_msg})
+            st.session_state.rag_messages.append({
+                "role": "assistant",
+                "content": answer_text,
+                "citations": citations
+            })
